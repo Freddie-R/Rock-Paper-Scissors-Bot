@@ -1,8 +1,8 @@
 import pygame
 import time
-import random
 import math
 from scipy.stats import norm
+import pickle
 
 pygame.font.init()
 
@@ -21,17 +21,6 @@ red = (255, 0, 0)
 green = (0, 255, 0)
 gray = (192, 192, 192)
 
-#Define Varibles
-clicked = False
-past_moves = []
-rounds = 0
-bot_wins = 0
-player_wins = 0
-bot_p_win_num = "0.00"
-player_p_win_num = "0.00"
-expected_win_rate = 1/3
-bot_chance = "100.00"
-
 #Create Images and Text
 image_rock = pygame.image.load("rock.png")
 image_rock = pygame.transform.scale(image_rock, (250,250))
@@ -47,6 +36,36 @@ image_scissors = pygame.image.load("scissors.png")
 image_scissors = pygame.transform.scale(image_scissors, (250,250))
 image_scissors_rect = image_scissors.get_rect()
 image_scissors_rect.topleft = (850, 50)
+
+amount_played_value = -0.06088436979399536
+memory_value = -0.696669173258698
+pattern_value = -0.5090822544377698
+
+def reset_varibles():
+    global clicked
+    global past_moves
+    global rounds
+    global draws
+    global bot_wins
+    global player_wins
+    global bot_p_win_num
+    global player_p_win_num
+    global expected_win_rate
+    global bot_chance
+
+#Define Varibles
+    clicked = False
+    past_moves = []
+    rounds = 0
+    draws = 0
+    bot_wins = 0
+    player_wins = 0
+    bot_p_win_num = "0.00"
+    player_p_win_num = "0.00"
+    expected_win_rate = 0.5
+    bot_chance = "100.00"
+
+reset_varibles()
 
 def create_display(state):
 
@@ -72,7 +91,7 @@ def create_display(state):
     create_square(((SCREEN_WIDTH - size) //2,50),size,5, "Scissors")
 
     #Print text
-    rounds_text = "Rounds: " + str(rounds)
+    rounds_text = "Rounds: " + str(rounds + draws)
     rounds_img = font.render(rounds_text, True, black)
     screen.blit(rounds_img, (100, 320))
 
@@ -112,16 +131,21 @@ def win_rate_test():
 def effect(state):
     global bot_wins
     global player_wins
+    global rounds
+    global draws
 
     if state == "win":
         create_display("win")
         player_wins += 1
+        rounds += 1
         
     elif state == "lose":
         create_display("lose")
         bot_wins += 1
+        rounds += 1
     else:
         create_display("draw")
+        draws += 1
     pygame.display.update()
     time.sleep(0.1)
 
@@ -167,11 +191,11 @@ def pick_move():
         #add 1 points for every time played
         for i in range(len(past_moves)):
             if past_moves[i] == "rock":
-                rock_likleyhood += (1 * ((i + 1) / rounds))
+                rock_likleyhood += (amount_played_value * ((i + 1) / rounds))
             elif past_moves[i] == "paper":
-                paper_likleyhood += (1 * ((i + 1) / rounds))
+                paper_likleyhood += (amount_played_value * ((i + 1) / rounds))
             else:
-                scissors_likleyhood += (1 * ((i + 1) / rounds))
+                scissors_likleyhood += (amount_played_value * ((i + 1) / rounds))
         
         for depth in range(2,rounds):
             if rounds >= depth+1:
@@ -185,12 +209,13 @@ def pick_move():
                         temp_list.append(past_moves[i])
                         
                         if temp_list[0:depth] == latest_moves:
+                            print(temp_list,"round: ", i, " weight: ",((memory_value * (depth - 1)) * (((i + 1) / rounds) * pattern_value)))
                             if temp_list[depth] == "rock":
-                                rock_likleyhood += ((5 * (depth - 1)) * ((i + 1) / rounds))
+                                rock_likleyhood += ((memory_value * (depth - 1)) * (((i + 1) / rounds) * pattern_value))
                             elif temp_list[depth] == "paper":
-                                paper_likleyhood += ((5 * (depth - 1)) * ((i + 1) / rounds))
+                                paper_likleyhood += ((memory_value * (depth - 1)) * (((i + 1) / rounds) * pattern_value))
                             else:
-                                scissors_likleyhood += ((5 * (depth - 1)) * ((i + 1) / rounds))
+                                scissors_likleyhood += ((memory_value * (depth - 1)) * (((i + 1) / rounds) * pattern_value))
                     
 
 
@@ -216,6 +241,11 @@ def get_last_moves(count):
 
     return latest_moves
 
+#Function to save a list to the file (append mode)
+def save_list(lst):
+    with open('past_games.pkl', 'ab') as file:  # Append mode to add more lists
+        pickle.dump(lst, file)
+
 Running = True
 while Running:
     create_display("Normal")
@@ -230,6 +260,7 @@ while Running:
 
             #Check Location
             player_move = get_move_from_location(pos)
+            #player_move = random.choice(["rock","paper","scissors"])
 
 
             if player_move == "rock" or player_move == "paper" or player_move == "scissors":
@@ -252,7 +283,6 @@ while Running:
 
 
                 #update values
-                rounds += 1
 
                 if rounds != 0:
                     bot_p_win_num = "{:.2f}".format(((bot_wins / rounds) * 100))
@@ -268,3 +298,5 @@ while Running:
 
 
     pygame.display.update()
+
+save_list(past_moves)
